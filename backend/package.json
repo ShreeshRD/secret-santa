@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/server.ts",
+    "start": "node dist/server.js",
     "dev": "nodemon src/server.ts",
-    "test": "jest"
+    "test": "jest",
+    "build": "tsc"
   },
   "keywords": [],
   "author": "",

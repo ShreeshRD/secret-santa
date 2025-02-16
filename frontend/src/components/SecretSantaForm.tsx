@@ -13,7 +13,7 @@ const SecretSantaForm = () => {
   const [previousPairings, setPreviousPairings] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [errorDetails, setErrorDetails] = useState<any>(null);
+  const [errorDetails, setErrorDetails] = useState<unknown>(null);
   const [previewData, setPreviewData] = useState<string[][]>([]);
   const [totalRows, setTotalRows] = useState<number>(0);
   const [csvBlob, setCSVBlob] = useState<Blob | null>(null);
@@ -67,24 +67,30 @@ const SecretSantaForm = () => {
       const previewRows = rows.slice(0, 10).map((row) => row.split(","));
       setPreviewData(previewRows);
       setCSVBlob(blob);
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = "Failed to process files. Please try again.";
-      let details = null;
-      if (err.response && err.response.data instanceof Blob) {
-        // Convert the Blob to text and parse it as JSON
-        try {
-          const errorText = await err.response.data.text();
-          const errorObj = JSON.parse(errorText);
-          errorMessage = errorObj.error || errorObj.message || errorMessage;
-          details = errorObj.details || null;
-        } catch (parseError) {
-          errorMessage = "Failed to process files. Please try again.";
+      let details: unknown = null;
+      if (axios.isAxiosError(err) && err.response) {
+        if (err.response.data instanceof Blob) {
+          // Convert the Blob to text and parse it as JSON
+          try {
+            const errorText = await err.response.data.text();
+            const errorObj = JSON.parse(errorText);
+            errorMessage = errorObj.error || errorObj.message || errorMessage;
+            details = errorObj.details || null;
+          } catch {
+            errorMessage = "Failed to process files. Please try again.";
+          }
+        } else if (err.response.data) {
+          const data = err.response.data as {
+            error?: string;
+            message?: string;
+            details?: unknown;
+          };
+          errorMessage = data.error || data.message || errorMessage;
+          details = data.details || null;
         }
-      } else if (err.response && err.response.data) {
-        errorMessage =
-          err.response.data.error || err.response.data.message || errorMessage;
-        details = err.response.data.details || null;
-      } else if (err.message) {
+      } else if (err instanceof Error) {
         errorMessage = err.message;
       }
       setError(errorMessage);
@@ -128,7 +134,7 @@ const SecretSantaForm = () => {
         {error && (
           <div className="text-red-500 text-sm">
             <p>{error}</p>
-            {errorDetails && (
+            {errorDetails != null && (
               <details className="mt-2 cursor-pointer">
                 <summary>More details</summary>
                 <pre className="whitespace-pre-wrap text-left">
