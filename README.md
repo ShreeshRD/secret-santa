@@ -13,9 +13,6 @@
 cd backend
 npm install
 npm run dev
-npm run build
-npm start
-npm test
 ```
 
 ### Frontend Setup
@@ -23,11 +20,16 @@ npm test
 cd frontend
 npm install
 npm run dev
+```
+### Build and run frontend and backend
+```sh
 npm run build
 npm start
+```
+### Test frontend and backend
+```sh
 npm test
 ```
-
 ## Assumptions & Design Choices
 1. No database is used.
 2. Even if the file is empty, it is assumed that the headers will be present. The test case will fail for format validation if headers are missing.
