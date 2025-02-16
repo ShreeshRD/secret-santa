@@ -13,6 +13,7 @@ const SecretSantaForm = () => {
   const [previousPairings, setPreviousPairings] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<any>(null);
   const [previewData, setPreviewData] = useState<string[][]>([]);
   const [totalRows, setTotalRows] = useState<number>(0);
   const [csvBlob, setCSVBlob] = useState<Blob | null>(null);
@@ -30,6 +31,7 @@ const SecretSantaForm = () => {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
+    setErrorDetails(null);
     setPreviewData([]);
     setTotalRows(0);
     setCSVBlob(null);
@@ -57,12 +59,36 @@ const SecretSantaForm = () => {
       const blob = response.data as Blob;
       const csvText = await blob.text();
       const rows = csvText.split("\n").filter((row) => row.trim() !== "");
+      if (rows.length === 0) {
+        throw new Error("The CSV file is empty or corrupted.");
+      }
+
       setTotalRows(rows.length);
       const previewRows = rows.slice(0, 10).map((row) => row.split(","));
       setPreviewData(previewRows);
       setCSVBlob(blob);
-    } catch (err) {
-      setError("Failed to process files. Please try again.");
+    } catch (err: any) {
+      let errorMessage = "Failed to process files. Please try again.";
+      let details = null;
+      if (err.response && err.response.data instanceof Blob) {
+        // Convert the Blob to text and parse it as JSON
+        try {
+          const errorText = await err.response.data.text();
+          const errorObj = JSON.parse(errorText);
+          errorMessage = errorObj.error || errorObj.message || errorMessage;
+          details = errorObj.details || null;
+        } catch (parseError) {
+          errorMessage = "Failed to process files. Please try again.";
+        }
+      } else if (err.response && err.response.data) {
+        errorMessage =
+          err.response.data.error || err.response.data.message || errorMessage;
+        details = err.response.data.details || null;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      setError(errorMessage);
+      setErrorDetails(details);
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -76,6 +102,7 @@ const SecretSantaForm = () => {
     setTotalRows(0);
     setCSVBlob(null);
     setError(null);
+    setErrorDetails(null);
   };
 
   // Form section with heading and file inputs centered.
@@ -98,7 +125,19 @@ const SecretSantaForm = () => {
           onChange={(e) => handleFileChange(e, setPreviousPairings)}
         />
 
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {error && (
+          <div className="text-red-500 text-sm">
+            <p>{error}</p>
+            {errorDetails && (
+              <details className="mt-2 cursor-pointer">
+                <summary>More details</summary>
+                <pre className="whitespace-pre-wrap text-left">
+                  {JSON.stringify(errorDetails, null, 2)}
+                </pre>
+              </details>
+            )}
+          </div>
+        )}
 
         <div className="mt-4">
           {previewData.length === 0 ? (
