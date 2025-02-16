@@ -84,3 +84,25 @@ npm test
 #### **Conflict Resolution**
 - **Fails gracefully when no valid pairing is possible due to complete constraint conflicts.**
 
+---
+
+## Shuffling Algorithm
+The Secret Santa shuffling algorithm ensures that participants are assigned a recipient without self-pairing while avoiding previous pairings. The process follows these steps:
+
+1. **Generate a Derangement:**
+   - A derangement is a permutation where no element appears in its original position.
+   - The algorithm performs a Fisher-Yates shuffle, swapping elements randomly while ensuring no one gets themselves as a recipient.
+   - If a self-pairing occurs, the process is retried recursively (though rare).
+
+2. **Initial Pairing:**
+   - After generating the derangement, the participants are mapped to their corresponding Secret Santa recipients.
+
+3. **Resolve Conflicts with Previous Pairings:**
+   - The algorithm checks for conflicts where a participant is assigned the same recipient as last year.
+   - If conflicts exist, the algorithm attempts to swap conflicting recipients with others who also have no conflicts.
+   - If an unresolvable conflict exists (e.g., complete constraint conflicts preventing valid pairing), an error is thrown.
+
+4. **Finalizing Pairs:**
+   - Once conflicts are resolved, the final Secret Santa pairs are returned.
+   - The format includes both participant and recipient details, ensuring a valid pairing structure.
+
