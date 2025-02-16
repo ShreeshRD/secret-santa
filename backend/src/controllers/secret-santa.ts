@@ -6,12 +6,35 @@ import path from "path";
 import { generateSecretSantaPairs } from "../services/secret-santa-shuffler";
 import { Parser } from "json2csv";
 
+const uploadsFolder = path.join(__dirname, "../../uploads");
+
+// Helper to delete all files except the ones specified
+const cleanUploadsFolderExcept = (filesToKeep: string[]) => {
+  if (!fs.existsSync(uploadsFolder)) return;
+
+  const files = fs.readdirSync(uploadsFolder);
+  files.forEach((file) => {
+    if (!filesToKeep.includes(file)) {
+      fs.unlinkSync(path.join(uploadsFolder, file));
+    }
+  });
+};
+
 export const processCSV = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  // Flag to know if the request was successful
+  let successful = false;
+
+  // Store filenames and full file paths for later cleanup
+  let currentParticipantsFilePath: string | null = null;
+  let previousPairingsFilePath: string | null = null;
+  let currentParticipantsFilename: string | null = null;
+  let previousPairingsFilename: string | null = null;
+
   try {
-    // Type guard to ensure req.files is a dictionary
+    // Type guard: ensure req.files is a dictionary
     if (
       !req.files ||
       typeof req.files !== "object" ||
@@ -23,7 +46,7 @@ export const processCSV = async (
       return;
     }
 
-    // Type assertion to tell TypeScript that req.files is a dictionary
+    // Type assertion: req.files is a dictionary
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
 
     // Access files using bracket notation
@@ -35,16 +58,16 @@ export const processCSV = async (
       return;
     }
 
-    // Rest of your code remains the same...
-    const currentParticipantsFilePath = path.join(
-      __dirname,
-      "../../uploads",
-      currentParticipantsFiles[0].filename
+    // Assign filenames and file paths to outer variables for later cleanup.
+    currentParticipantsFilename = currentParticipantsFiles[0].filename;
+    previousPairingsFilename = previousPairingsFiles[0].filename;
+    currentParticipantsFilePath = path.join(
+      uploadsFolder,
+      currentParticipantsFilename
     );
-    const previousPairingsFilePath = path.join(
-      __dirname,
-      "../../uploads",
-      previousPairingsFiles[0].filename
+    previousPairingsFilePath = path.join(
+      uploadsFolder,
+      previousPairingsFilename
     );
 
     const currentParticipantsContent = fs.readFileSync(
@@ -75,15 +98,6 @@ export const processCSV = async (
       return;
     }
 
-    const currentParticipants = parsedCurrentParticipants.data.map((row) =>
-      ParticipantSchema.parse(row)
-    );
-
-    if (currentParticipants.length < 2) {
-      res.status(400).json({ error: "At least 2 participants required" });
-      return;
-    }
-
     // Parse previous pairings
     const parsedPreviousPairings = parse<{
       Employee_EmailID: string;
@@ -98,6 +112,37 @@ export const processCSV = async (
       !Array.isArray(parsedPreviousPairings.data)
     ) {
       res.status(400).json({ error: "Invalid previous pairings CSV format" });
+      return;
+    }
+
+    // Validate headers for current participants
+    if (
+      !parsedCurrentParticipants.meta?.fields?.includes("Employee_Name") ||
+      !parsedCurrentParticipants.meta?.fields?.includes("Employee_EmailID")
+    ) {
+      res
+        .status(400)
+        .json({ error: "Invalid current participants CSV format" });
+      return;
+    }
+
+    // Validate headers for previous pairings
+    if (
+      !parsedPreviousPairings.meta?.fields?.includes("Employee_Name") ||
+      !parsedPreviousPairings.meta?.fields?.includes("Employee_EmailID") ||
+      !parsedPreviousPairings.meta?.fields?.includes("Secret_Child_Name") ||
+      !parsedPreviousPairings.meta?.fields?.includes("Secret_Child_EmailID")
+    ) {
+      res.status(400).json({ error: "Invalid previous pairings CSV format" });
+      return;
+    }
+
+    const currentParticipants = parsedCurrentParticipants.data.map((row) =>
+      ParticipantSchema.parse(row)
+    );
+
+    if (currentParticipants.length < 2) {
+      res.status(400).json({ error: "At least 2 participants required" });
       return;
     }
 
@@ -125,11 +170,34 @@ export const processCSV = async (
 
     // Send the CSV file as a response
     res.status(200).send(csv);
+    successful = true;
   } catch (error) {
     console.error("Processing Error:", error);
     res.status(500).json({
       error: "Internal Server Error",
       details: error instanceof Error ? error.message : "Unknown error",
     });
+  } finally {
+    // Cleanup: always remove files uploaded in this request.
+    if (successful) {
+      // On success: keep only the current request's files
+      if (currentParticipantsFilename && previousPairingsFilename) {
+        cleanUploadsFolderExcept([
+          currentParticipantsFilename,
+          previousPairingsFilename,
+        ]);
+      }
+    } else {
+      // On failure: delete any files that were uploaded for this request.
+      if (
+        currentParticipantsFilePath &&
+        fs.existsSync(currentParticipantsFilePath)
+      ) {
+        fs.unlinkSync(currentParticipantsFilePath);
+      }
+      if (previousPairingsFilePath && fs.existsSync(previousPairingsFilePath)) {
+        fs.unlinkSync(previousPairingsFilePath);
+      }
+    }
   }
 };
