@@ -38,7 +38,7 @@ npm test
 
 ## Frontend
 
-### Test Cases
+### Component-wise Test Cases
 #### `FileInput`
 - **Renders correctly**: Displays the provided label and default "Choose File" text when no file is selected.
 - **Handles file selection**: Invokes the `onChange` handler when a file is selected.
