@@ -1,4 +1,3 @@
-// src/components/DownloadButton.tsx
 import React from "react";
 
 interface DownloadButtonProps {

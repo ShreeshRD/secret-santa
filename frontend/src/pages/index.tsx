@@ -1,4 +1,3 @@
-// src/pages/index.tsx
 import SecretSantaForm from "@/components/SecretSantaForm";
 
 export default function Home() {
